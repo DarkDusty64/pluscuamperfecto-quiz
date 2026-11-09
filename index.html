@@ -115,6 +115,36 @@ details.cheat summary { cursor: pointer; font-family: var(--font-display); font-
 .cheat td:first-child { color: var(--muted); }
 .cheat h3 { font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; font-family: var(--font-body); }
 .cheat p { margin: 10px 0 0; font-size: .95rem; }
+.tabs { display: flex; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 5px; }
+.tab { flex: 1; font: inherit; font-weight: 700; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.tab:focus-visible, .chip:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.view { display: flex; flex-direction: column; gap: 22px; }
+
+.drill-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.drill-top label { color: var(--muted); font-size: .9rem; display: flex; gap: 8px; align-items: center; }
+select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--surface-2); color: var(--ink); max-width: 100%; }
+.flash { text-align: center; display: flex; flex-direction: column; gap: 4px; padding-block: 8px; }
+.flash .inf { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.2rem, 9vw, 3.2rem); line-height: 1.05; }
+.flash .de { color: var(--muted); }
+.flash .fam { align-self: center; font-size: .8rem; font-weight: 700; letter-spacing: .06em; padding: 3px 10px; border-radius: 99px; background: var(--mark-soft); color: var(--ink); }
+.ex { font-style: italic; }
+.ex b { font-style: normal; }
+
+.fam-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.fam-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fam-card h3 { font-size: 1.1rem; }
+.fam-card .hint { margin: 0; color: var(--muted); font-size: .92rem; }
+.fam-card table { width: 100%; border-collapse: collapse; font-size: .98rem; }
+.fam-card td { padding: 5px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.fam-card td.p { font-weight: 700; text-align: right; }
+.fam-card td small { color: var(--muted); display: block; }
+.hide-p td.p span { filter: blur(6px); cursor: pointer; transition: filter .15s; user-select: none; }
+.hide-p td.p span.peek { filter: none; }
+.list-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.list-head h2 { font-size: 1.35rem; }
+.switch { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: .92rem; cursor: pointer; }
+.switch input { width: 18px; height: 18px; accent-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
 </style>
 </head>
@@ -143,9 +173,37 @@ details.cheat summary { cursor: pointer; font-family: var(--font-display); font-
     </div>
   </header>
 
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-quiz" data-view="quiz" aria-selected="true">Quiz</button>
+    <button class="tab" role="tab" id="tab-lernen" data-view="lernen" aria-selected="false">Unregelmäßige lernen</button>
+  </div>
+
+  <section class="view" id="view-lernen" hidden>
+    <div class="card" aria-live="polite">
+      <div class="drill-top">
+        <span class="eyebrow">Karteikarten</span>
+        <label for="famSel">Gruppe
+          <select id="famSel"></select>
+        </label>
+      </div>
+      <div class="bar">
+        <div class="track"><div class="fill" id="dFill"></div></div>
+        <span id="dCount">0 / 0 gelernt</span>
+      </div>
+      <div id="drill"></div>
+    </div>
+
+    <div class="list-head">
+      <h2>Alle Partizipien nach Familien</h2>
+      <label class="switch" for="hideP"><input type="checkbox" id="hideP"> Partizipien verdecken</label>
+    </div>
+    <div class="fam-grid" id="famGrid"></div>
+  </section>
+
+  <section class="view" id="view-quiz">
   <div class="bar" id="bar">
     <div class="track"><div class="fill" id="fill"></div></div>
-    <span id="count">1 / 24</span>
+    <span id="count">1 / 26</span>
   </div>
 
   <main id="stage" class="card" aria-live="polite"></main>
@@ -183,6 +241,7 @@ details.cheat summary { cursor: pointer; font-family: var(--font-display); font-
       </div>
     </div>
   </details>
+  </section>
 </div>
 
 <script>
@@ -355,6 +414,152 @@ function renderResult(){
 }
 
 start(QUESTIONS);
+
+/* ---------- Lernmodus: unregelmäßige Partizipien ---------- */
+const FAMILIES = [
+  { id:"ierto", title:"-ierto", hint:"Verben auf -brir: abrir und seine Verwandten.", words:[
+    { inf:"abrir", de:"öffnen", p:"abierto", ex:"Alguien <b>había abierto</b> la ventana." },
+    { inf:"cubrir", de:"bedecken", p:"cubierto", ex:"La nieve <b>había cubierto</b> el coche." },
+    { inf:"descubrir", de:"entdecken", p:"descubierto", ex:"Nadie <b>había descubierto</b> el secreto." } ]},
+  { id:"cho", title:"-cho", hint:"hacer und decir: das c-Geräusch bleibt, -cho kommt dazu.", words:[
+    { inf:"hacer", de:"machen", p:"hecho", ex:"Ya <b>habíamos hecho</b> los deberes." },
+    { inf:"deshacer", de:"auspacken, rückgängig machen", p:"deshecho", ex:"Todavía no <b>había deshecho</b> la maleta." },
+    { inf:"satisfacer", de:"zufriedenstellen", p:"satisfecho", ex:"El resultado no me <b>había satisfecho</b>." },
+    { inf:"decir", de:"sagen", p:"dicho", ex:"Ya te lo <b>había dicho</b>." } ]},
+  { id:"to", title:"-to", hint:"Kurze Formen: escribir verliert das -bir, romper wird ganz kurz.", words:[
+    { inf:"escribir", de:"schreiben", p:"escrito", ex:"Nunca <b>había escrito</b> un poema." },
+    { inf:"describir", de:"beschreiben", p:"descrito", ex:"Ella me <b>había descrito</b> la casa." },
+    { inf:"romper", de:"zerbrechen", p:"roto", ex:"El niño <b>había roto</b> el vaso." },
+    { inf:"ver", de:"sehen", p:"visto", ex:"Nunca <b>había visto</b> el mar." },
+    { inf:"freír", de:"frittieren", p:"frito", ex:"Mi madre ya <b>había frito</b> las patatas." } ]},
+  { id:"uesto", title:"-uesto", hint:"poner und alle Verben mit -poner.", words:[
+    { inf:"poner", de:"legen, stellen", p:"puesto", ex:"¿Dónde <b>habías puesto</b> las llaves?" },
+    { inf:"suponer", de:"annehmen", p:"supuesto", ex:"Yo <b>había supuesto</b> otra cosa." },
+    { inf:"componer", de:"komponieren", p:"compuesto", ex:"Él <b>había compuesto</b> una canción." },
+    { inf:"proponer", de:"vorschlagen", p:"propuesto", ex:"Nos <b>habían propuesto</b> un plan." } ]},
+  { id:"uelto", title:"-uelto / -uerto", hint:"Aus o wird ue, wie im Präsens (vuelvo, muero).", words:[
+    { inf:"volver", de:"zurückkommen", p:"vuelto", ex:"Ellos ya <b>habían vuelto</b>." },
+    { inf:"devolver", de:"zurückgeben", p:"devuelto", ex:"No me <b>había devuelto</b> el libro." },
+    { inf:"resolver", de:"lösen", p:"resuelto", ex:"Ya <b>habíamos resuelto</b> el problema." },
+    { inf:"morir", de:"sterben", p:"muerto", ex:"La planta ya <b>había muerto</b>." } ]},
+  { id:"otros", title:"Sonderfall", hint:"Passt in keine Familie, einfach merken.", words:[
+    { inf:"imprimir", de:"drucken", p:"impreso", ex:"Ya <b>había impreso</b> las entradas." } ]},
+  { id:"acento", title:"Regelmäßig, aber mit Akzent", hint:"Nach a, e, o bekommt -ido einen Akzent: -ído.", words:[
+    { inf:"leer", de:"lesen", p:"leído", ex:"Ya <b>había leído</b> el libro." },
+    { inf:"creer", de:"glauben", p:"creído", ex:"Nunca lo <b>habíamos creído</b>." },
+    { inf:"traer", de:"bringen", p:"traído", ex:"¿<b>Habías traído</b> la comida?" },
+    { inf:"caer", de:"fallen", p:"caído", ex:"El vaso se <b>había caído</b>." },
+    { inf:"oír", de:"hören", p:"oído", ex:"Nunca <b>había oído</b> esa canción." },
+    { inf:"reír", de:"lachen", p:"reído", ex:"Nunca nos <b>habíamos reído</b> tanto." } ]}
+];
+const ALL_WORDS = FAMILIES.flatMap(f => f.words.map(w => ({ ...w, fam: f.title })));
+
+const famSel = document.getElementById("famSel");
+const drillEl = document.getElementById("drill");
+const dFill = document.getElementById("dFill");
+const dCount = document.getElementById("dCount");
+famSel.innerHTML = `<option value="all">Alle (${ALL_WORDS.length})</option>` +
+  FAMILIES.map(f => `<option value="${f.id}">${esc(f.title)} (${f.words.length})</option>`).join("");
+
+let pile = [], total = 0, learned = 0, current = null, firstTry = true;
+
+function startDrill(){
+  const words = famSel.value === "all" ? ALL_WORDS : FAMILIES.find(f => f.id === famSel.value).words.map(w => ({ ...w, fam: FAMILIES.find(f => f.id === famSel.value).title }));
+  pile = shuffle(words); total = words.length; learned = 0;
+  nextCard();
+}
+function drillProgress(){
+  dFill.style.width = (total ? learned / total * 100 : 0) + "%";
+  dCount.textContent = `${learned} / ${total} gelernt`;
+}
+function nextCard(){
+  drillProgress();
+  if (!pile.length) {
+    drillEl.innerHTML = `<div class="flash"><div class="inf">¡Todo aprendido!</div><p class="de">Du hast alle ${total} Partizipien dieser Gruppe gewusst.</p></div>
+      <div class="actions"><button class="btn" id="dAgain">Nochmal üben</button></div>`;
+    document.getElementById("dAgain").addEventListener("click", startDrill);
+    return;
+  }
+  current = pile.shift(); firstTry = true;
+  drillEl.innerHTML = `
+    <div class="flash"><span class="fam">${esc(current.fam)}</span><div class="inf">${esc(current.inf)}</div><div class="de">${esc(current.de)}</div></div>
+    <div class="fillrow">
+      <input id="dAns" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Partizip, z. B. hecho" aria-label="Partizip eingeben">
+      <button class="btn" id="dCheck">Prüfen</button>
+    </div>
+    <div class="accents">${["á","é","í","ó","ú","ñ"].map(c=>`<button class="acc" data-c="${c}" type="button">${c}</button>`).join("")}</div>
+    <div id="dFb"></div>
+    <div class="actions"><button class="btn ghost" id="dShow">Weiß ich nicht</button><button class="btn" id="dNext" hidden>Weiter</button></div>`;
+  const input = document.getElementById("dAns");
+  input.focus({preventScroll:true});
+  drillEl.querySelectorAll(".acc").forEach(b => b.addEventListener("click", () => {
+    const s = input.selectionStart ?? input.value.length, e = input.selectionEnd ?? input.value.length;
+    input.value = input.value.slice(0,s) + b.dataset.c + input.value.slice(e);
+    input.focus(); input.setSelectionRange(s+1, s+1);
+  }));
+  document.getElementById("dCheck").addEventListener("click", () => checkCard(input));
+  document.getElementById("dShow").addEventListener("click", () => revealCard(input));
+  document.getElementById("dNext").addEventListener("click", nextCard);
+  input.addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (input.disabled) nextCard(); else checkCard(input);
+  });
+}
+function finishCard(input, ok, html){
+  input.disabled = true;
+  input.classList.add(ok ? "right" : "wrong");
+  drillEl.querySelectorAll(".acc").forEach(b => b.disabled = true);
+  document.getElementById("dCheck").disabled = true;
+  document.getElementById("dShow").hidden = true;
+  document.getElementById("dFb").innerHTML = `<div class="feedback ${ok?"right":"wrong"}"><strong>${ok ? "¡Correcto!" : "Nochmal üben"}</strong><p>${html}</p></div>`;
+  const n = document.getElementById("dNext"); n.hidden = false; n.focus({preventScroll:true});
+  if (ok) learned++;
+  else pile.splice(Math.min(3, pile.length), 0, current); // kommt bald wieder
+  drillProgress();
+}
+function checkCard(input){
+  const val = norm(input.value);
+  if (!val) { input.focus(); return; }
+  const sol = current.p;
+  const line = `<b>${esc(current.inf)} → ${esc(sol)}</b><br><span class="ex">${current.ex}</span>`;
+  if (val === sol) return finishCard(input, true, line);
+  if (noAcc(val) === noAcc(sol)) return finishCard(input, true, `Akzent nicht vergessen! ${line}`);
+  finishCard(input, false, `Du hast <i>${esc(input.value.trim())}</i> geschrieben. Richtig: ${line}<br>Die Karte kommt gleich nochmal.`);
+}
+function revealCard(input){
+  finishCard(input, false, `<b>${esc(current.inf)} → ${esc(current.p)}</b><br><span class="ex">${current.ex}</span><br>Die Karte kommt gleich nochmal.`);
+}
+famSel.addEventListener("change", startDrill);
+
+// Übersicht nach Familien
+const famGrid = document.getElementById("famGrid");
+famGrid.innerHTML = FAMILIES.map(f => `
+  <div class="fam-card">
+    <h3>${esc(f.title)}</h3>
+    <p class="hint">${esc(f.hint)}</p>
+    <table>${f.words.map(w => `<tr><td>${esc(w.inf)}<small>${esc(w.de)}</small></td><td class="p"><span>${esc(w.p)}</span></td></tr>`).join("")}</table>
+  </div>`).join("");
+const hideP = document.getElementById("hideP");
+hideP.addEventListener("change", () => famGrid.classList.toggle("hide-p", hideP.checked));
+famGrid.addEventListener("click", e => {
+  const s = e.target.closest("td.p span");
+  if (s && famGrid.classList.contains("hide-p")) s.classList.toggle("peek");
+});
+
+// Tabs (#quiz / #lernen)
+function showView(name){
+  if (name !== "lernen") name = "quiz";
+  document.getElementById("view-quiz").hidden = name !== "quiz";
+  document.getElementById("view-lernen").hidden = name !== "lernen";
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.view === name ? "true" : "false"));
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  if (location.hash !== "#" + t.dataset.view) location.hash = t.dataset.view; else showView(t.dataset.view);
+}));
+window.addEventListener("hashchange", () => showView(location.hash.slice(1)));
+showView(location.hash.slice(1));
+startDrill();
 </script>
 </body>
 </html>
