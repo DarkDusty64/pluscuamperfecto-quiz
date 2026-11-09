@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pluscuamperfecto Quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: single centered workbook column — header with timeline, one question card at a time, cheat sheet below */
+:root {
+  --bg: #EEF1F6;
+  --surface: #FFFFFF;
+  --surface-2: #F6F8FB;
+  --ink: #1B2340;
+  --muted: #5B6482;
+  --line: #D6DCE8;
+  --accent: #2747D6;
+  --accent-ink: #FFFFFF;
+  --mark: #F2B705;
+  --mark-soft: #FFF3C4;
+  --good: #1F7A50;
+  --good-soft: #E1F4EA;
+  --bad: #B8323F;
+  --bad-soft: #FBE4E6;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10142A; --surface: #1A2040; --surface-2: #151A35; --ink: #E8EBF7; --muted: #9AA3C4; --line: #2E3660;
+    --accent: #8197FF; --accent-ink: #10142A; --mark: #F5C542; --mark-soft: #3A3318;
+    --good: #5FD39A; --good-soft: #163527; --bad: #FF8A95; --bad-soft: #3D1C24; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10142A; --surface: #1A2040; --surface-2: #151A35; --ink: #E8EBF7; --muted: #9AA3C4; --line: #2E3660;
+  --accent: #8197FF; --accent-ink: #10142A; --mark: #F5C542; --mark-soft: #3A3318;
+  --good: #5FD39A; --good-soft: #163527; --bad: #FF8A95; --bad-soft: #3D1C24; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 17px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.wrap { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(2rem, 6vw, 2.8rem); font-weight: 800; letter-spacing: -0.02em; }
+.eyebrow { font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+header { display: flex; flex-direction: column; gap: 10px; }
+header p { margin: 0; color: var(--muted); max-width: 60ch; }
+.hab { background: var(--mark-soft); box-shadow: inset 0 -0.35em 0 var(--mark); padding: 0 .15em; border-radius: 2px; }
+
+.timeline { margin-top: 6px; overflow-x: auto; }
+.timeline svg { display: block; width: 100%; min-width: 360px; height: auto; }
+.timeline text { font-family: var(--font-body); fill: var(--muted); font-size: 13px; }
+.timeline .t-strong { fill: var(--ink); font-weight: 700; font-size: 14px; }
+
+.bar { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: .9rem; }
+.track { flex: 1; height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.fill { height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .3s ease; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 1px 0 var(--line); }
+.q-meta { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.q-text { font-size: 1.3rem; line-height: 1.45; margin: 0; }
+.q-text .blank { display: inline-block; min-width: 5.5em; border-bottom: 2px solid var(--accent); }
+.q-text .verb { color: var(--muted); font-style: italic; }
+.q-de { color: var(--muted); font-size: .95rem; margin: -10px 0 0; }
+
+.options { display: grid; gap: 10px; }
+.opt { text-align: left; font: inherit; color: var(--ink); background: var(--surface-2); border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 14px; cursor: pointer; display: flex; gap: 12px; align-items: baseline; }
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt:focus-visible, .btn:focus-visible, input:focus-visible, .acc:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.opt .k { font-family: var(--font-display); font-weight: 800; color: var(--muted); min-width: 1.1em; }
+.opt.right { background: var(--good-soft); border-color: var(--good); }
+.opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+.opt:disabled { cursor: default; }
+
+.fillrow { display: flex; gap: 10px; flex-wrap: wrap; }
+.fillrow input { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 1.1rem; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface-2); color: var(--ink); }
+.fillrow input.right { border-color: var(--good); background: var(--good-soft); }
+.fillrow input.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.accents { display: flex; gap: 6px; flex-wrap: wrap; }
+.acc { font: inherit; width: 40px; height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); cursor: pointer; }
+.acc:hover { border-color: var(--accent); }
+
+.btn { font: inherit; font-weight: 700; padding: 12px 20px; border-radius: 10px; border: 1.5px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+.feedback { border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.feedback.right { background: var(--good-soft); }
+.feedback.wrong { background: var(--bad-soft); }
+.feedback strong { font-family: var(--font-display); font-size: 1.05rem; }
+.feedback.right strong { color: var(--good); }
+.feedback.wrong strong { color: var(--bad); }
+.feedback p { margin: 0; }
+
+.result-score { font-family: var(--font-display); font-weight: 800; font-size: clamp(3rem, 12vw, 4.5rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.result-score small { font-size: .4em; color: var(--muted); font-weight: 600; }
+.mistakes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.mistakes li { border-top: 1px solid var(--line); padding-top: 10px; }
+.mistakes .yours { color: var(--bad); text-decoration: line-through; }
+.mistakes .sol { color: var(--good); font-weight: 700; }
+
+details.cheat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; }
+details.cheat summary { cursor: pointer; font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.cheat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-top: 14px; }
+.cheat-grid > div { min-width: 0; }
+.cheat table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.cheat td { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.cheat td:first-child { color: var(--muted); }
+.cheat h3 { font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; font-family: var(--font-body); }
+.cheat p { margin: 10px 0 0; font-size: .95rem; }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Español · Gramática</span>
+    <h1>Pluscuamperfecto</h1>
+    <p>Die Vorvergangenheit: <span class="hab">había</span> + Partizip. Sie beschreibt, was <em>vor</em> einem anderen Ereignis in der Vergangenheit schon passiert war.</p>
+    <div class="timeline" aria-label="Zeitstrahl: había llegado liegt vor llegaste, beides vor ahora">
+      <svg viewBox="0 0 600 84" role="img">
+        <line x1="20" y1="34" x2="580" y2="34" stroke="var(--line)" stroke-width="3"/>
+        <polygon points="580,27 594,34 580,41" fill="var(--line)"/>
+        <circle cx="110" cy="34" r="9" fill="var(--mark)"/>
+        <circle cx="320" cy="34" r="7" fill="var(--accent)"/>
+        <circle cx="530" cy="34" r="5" fill="var(--muted)"/>
+        <text x="110" y="64" text-anchor="middle" class="t-strong">El tren ya había salido</text>
+        <text x="110" y="80" text-anchor="middle">pluscuamperfecto</text>
+        <text x="320" y="64" text-anchor="middle" class="t-strong">cuando llegué.</text>
+        <text x="320" y="80" text-anchor="middle">indefinido</text>
+        <text x="530" y="64" text-anchor="middle" class="t-strong">ahora</text>
+        <text x="110" y="16" text-anchor="middle">zuerst</text>
+        <text x="320" y="16" text-anchor="middle">danach</text>
+      </svg>
+    </div>
+  </header>
+
+  <div class="bar" id="bar">
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <span id="count">1 / 24</span>
+  </div>
+
+  <main id="stage" class="card" aria-live="polite"></main>
+
+  <details class="cheat" id="cheat">
+    <summary>Spickzettel</summary>
+    <div class="cheat-grid">
+      <div>
+        <h3>haber im Imperfecto</h3>
+        <table>
+          <tr><td>yo</td><td><b>había</b></td></tr>
+          <tr><td>tú</td><td><b>habías</b></td></tr>
+          <tr><td>él / ella / usted</td><td><b>había</b></td></tr>
+          <tr><td>nosotros/-as</td><td><b>habíamos</b></td></tr>
+          <tr><td>vosotros/-as</td><td><b>habíais</b></td></tr>
+          <tr><td>ellos / ustedes</td><td><b>habían</b></td></tr>
+        </table>
+        <p>Partizip: <b>-ar → -ado</b>, <b>-er/-ir → -ido</b>. Es bleibt immer gleich (kein -a, kein -s).</p>
+      </div>
+      <div>
+        <h3>Unregelmäßige Partizipien</h3>
+        <table>
+          <tr><td>abrir</td><td>abierto</td></tr>
+          <tr><td>decir</td><td>dicho</td></tr>
+          <tr><td>escribir</td><td>escrito</td></tr>
+          <tr><td>hacer</td><td>hecho</td></tr>
+          <tr><td>morir</td><td>muerto</td></tr>
+          <tr><td>poner</td><td>puesto</td></tr>
+          <tr><td>romper</td><td>roto</td></tr>
+          <tr><td>ver</td><td>visto</td></tr>
+          <tr><td>volver</td><td>vuelto</td></tr>
+          <tr><td>descubrir</td><td>descubierto</td></tr>
+        </table>
+        <p>Pronomen stehen <b>vor</b> había: <i>Ya lo había visto.</i></p>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+const SECTIONS = {
+  1: "Teil 1 · Regelmäßige Formen",
+  2: "Teil 2 · Unregelmäßige Partizipien",
+  3: "Teil 3 · Sätze mit unregelmäßigen Verben",
+  4: "Teil 4 · Wann benutzt man es?",
+  5: "Teil 5 · Übersetzung"
+};
+
+// type: fill → answers[] ; mc → options[], correct index
+const QUESTIONS = [
+  { s:1, type:"fill", before:"Cuando llegué al cine, la película ya", verb:"empezar", after:".", answers:["había empezado"], ex:"Yo/él/ella → había + empezado (-ar → -ado)." },
+  { s:1, type:"fill", before:"Nosotros nunca", verb:"viajar", after:"en avión antes de 2015.", answers:["habíamos viajado"], ex:"nosotros → habíamos + viajado." },
+  { s:1, type:"fill", before:"¿Tú ya", verb:"comer", after:"cuando te llamé?", answers:["habías comido"], ex:"tú → habías + comido (-er → -ido)." },
+  { s:1, type:"fill", before:"Ellos ya", verb:"salir", after:"cuando empezó a llover.", answers:["habían salido"], ex:"ellos → habían + salido." },
+  { s:1, type:"fill", before:"Vosotros ya", verb:"terminar", after:"los deberes antes de la cena.", answers:["habíais terminado"], ex:"vosotros → habíais + terminado." },
+  { s:1, type:"fill", before:"Yo no", verb:"estudiar", after:"y por eso suspendí el examen.", answers:["había estudiado"], ex:"Verneinung: no steht vor había → no había estudiado." },
+
+  { s:2, type:"mc", q:"Partizip von <b>hacer</b>?", options:["hacido","hecho","hacho"], correct:1, ex:"hacer → hecho" },
+  { s:2, type:"mc", q:"Partizip von <b>decir</b>?", options:["dicho","decido","dico"], correct:0, ex:"decir → dicho" },
+  { s:2, type:"mc", q:"Partizip von <b>volver</b>?", options:["volvido","volto","vuelto"], correct:2, ex:"volver → vuelto (auch devolver → devuelto)" },
+  { s:2, type:"mc", q:"Partizip von <b>poner</b>?", options:["ponido","puesto","ponto"], correct:1, ex:"poner → puesto" },
+  { s:2, type:"mc", q:"Partizip von <b>romper</b>?", options:["roto","rompido","rompto"], correct:0, ex:"romper → roto" },
+  { s:2, type:"mc", q:"Welches Partizip ist <b>regelmäßig</b>?", options:["escrito","abierto","leído"], correct:2, ex:"leer → leído ist regelmäßig (mit Akzent). escribir → escrito und abrir → abierto sind unregelmäßig." },
+
+  { s:3, type:"fill", before:"Mi hermano ya", verb:"romper", after:"el vaso cuando entré.", answers:["había roto"], ex:"romper → roto: había roto." },
+  { s:3, type:"fill", before:"Nadie me", verb:"decir", after:"la verdad.", answers:["había dicho"], ex:"decir → dicho: había dicho." },
+  { s:3, type:"fill", before:"Ellas ya", verb:"volver", after:"a casa a las diez.", answers:["habían vuelto"], ex:"volver → vuelto: habían vuelto." },
+  { s:3, type:"fill", before:"Nosotros ya", verb:"hacer", after:"la cena cuando llegaron los invitados.", answers:["habíamos hecho"], ex:"hacer → hecho: habíamos hecho." },
+  { s:3, type:"fill", before:"Yo nunca", verb:"ver", after:"una película tan buena.", answers:["había visto"], ex:"ver → visto: había visto." },
+  { s:3, type:"fill", before:"¿Quién", verb:"abrir", after:"la ventana?", answers:["había abierto"], ex:"abrir → abierto: había abierto." },
+
+  { s:4, type:"mc", q:"Cuando llegamos a la estación, el tren ya ___.", options:["salió","había salido","ha salido"], correct:1, ex:"Der Zug war schon <i>vor</i> unserer Ankunft weg → pluscuamperfecto." },
+  { s:4, type:"mc", q:"Ayer ___ al cine con mis amigos.", options:["fui","había ido","he ido"], correct:0, ex:"Ein einfaches, abgeschlossenes Ereignis ohne ein „davor“ → indefinido." },
+  { s:4, type:"mc", q:"Me dijo que ya ___ el libro.", options:["leerá","había leído","leía"], correct:1, ex:"Indirekte Rede: Das Lesen passierte vor dem Sagen → había leído." },
+  { s:4, type:"mc", q:"¿El regalo? Ya ___ había comprado.", options:["le","la","lo"], correct:2, ex:"el regalo ist männlich → lo, und es steht vor había." },
+  { s:4, type:"mc", q:"La niña no había ___ nada.", options:["comida","comido","comidas"], correct:1, ex:"Das Partizip nach haber ändert sich nie: comido." },
+
+  { s:5, type:"mc", q:"„Ich hatte es schon gemacht.“", options:["Ya lo había hecho.","Ya lo he hecho.","Ya había lo hecho."], correct:0, ex:"Pronomen vor había, hacer → hecho." },
+  { s:5, type:"mc", q:"„Sie waren noch nie in Spanien gewesen.“", options:["Nunca estuvieron en España.","Nunca habían estado en España.","Nunca habían sido en España."], correct:1, ex:"„gewesen sein“ an einem Ort → estar → habían estado." },
+  { s:5, type:"mc", q:"„Als wir ankamen, hattet ihr schon gegessen.“", options:["Cuando llegamos, ya habíais comido.","Cuando habíamos llegado, ya comisteis.","Cuando llegamos, ya comíais."], correct:0, ex:"Das frühere Ereignis (essen) bekommt das pluscuamperfecto, das spätere (ankommen) das indefinido." }
+];
+
+const stage = document.getElementById("stage");
+const fillEl = document.getElementById("fill");
+const countEl = document.getElementById("count");
+
+let order = [], idx = 0, results = [];
+
+function shuffle(a){ a = a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function norm(s){ return s.toLowerCase().replace(/[¿?¡!.,]/g,"").replace(/\s+/g," ").trim(); }
+function noAcc(s){ return s.normalize("NFD").replace(/[̀-ͯ]/g,""); }
+function esc(s){ return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function start(list){
+  order = list.map(q => q.type === "mc" ? prepMc(q) : q);
+  idx = 0; results = [];
+  render();
+}
+function prepMc(q){
+  const idxs = shuffle(q.options.map((_,i)=>i));
+  return { ...q, shown: idxs.map(i => q.options[i]), shownCorrect: idxs.indexOf(q.correct) };
+}
+
+function progress(){
+  const n = order.length;
+  fillEl.style.width = (idx / n * 100) + "%";
+  countEl.textContent = Math.min(idx + 1, n) + " / " + n;
+}
+
+function render(){
+  progress();
+  if (idx >= order.length) return renderResult();
+  const q = order[idx];
+  const meta = `<div class="q-meta"><span class="eyebrow">${SECTIONS[q.s]}</span><span class="eyebrow">Frage ${idx+1}</span></div>`;
+  if (q.type === "fill") {
+    stage.innerHTML = meta + `
+      <p class="q-text">${esc(q.before)} <span class="blank">&nbsp;</span> <span class="verb">(${esc(q.verb)})</span> ${esc(q.after)}</p>
+      <div class="fillrow">
+        <input id="ans" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="z. B. había hablado" aria-label="Deine Antwort">
+        <button class="btn" id="check">Prüfen</button>
+      </div>
+      <div class="accents" aria-label="Sonderzeichen einfügen">${["á","é","í","ó","ú","ñ"].map(c=>`<button class="acc" data-c="${c}" type="button">${c}</button>`).join("")}</div>
+      <div id="fb"></div>
+      <div class="actions"><button class="btn" id="next" hidden>Weiter</button></div>`;
+    const input = document.getElementById("ans");
+    input.focus({preventScroll:true});
+    stage.querySelectorAll(".acc").forEach(b => b.addEventListener("click", () => {
+      const s = input.selectionStart ?? input.value.length, e = input.selectionEnd ?? input.value.length;
+      input.value = input.value.slice(0,s) + b.dataset.c + input.value.slice(e);
+      input.focus(); input.setSelectionRange(s+1, s+1);
+    }));
+    document.getElementById("check").addEventListener("click", () => checkFill(q, input));
+    input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if (!input.disabled) checkFill(q, input); else next(); } });
+  } else {
+    stage.innerHTML = meta + `
+      <p class="q-text">${q.q.replace("___", '<span class="blank">&nbsp;</span>')}</p>
+      <div class="options">${q.shown.map((o,i)=>`<button class="opt" data-i="${i}"><span class="k">${"ABC"[i]}</span><span>${esc(o)}</span></button>`).join("")}</div>
+      <div id="fb"></div>
+      <div class="actions"><button class="btn" id="next" hidden>Weiter</button></div>`;
+    stage.querySelectorAll(".opt").forEach(b => b.addEventListener("click", () => checkMc(q, +b.dataset.i)));
+  }
+  document.getElementById("next").addEventListener("click", next);
+}
+
+function checkFill(q, input){
+  const val = norm(input.value);
+  if (!val) { input.focus(); return; }
+  const answers = q.answers.map(norm);
+  let ok = answers.includes(val), accentNote = false;
+  if (!ok && answers.map(noAcc).includes(noAcc(val))) { ok = true; accentNote = true; }
+  input.disabled = true; document.getElementById("check").disabled = true;
+  stage.querySelectorAll(".acc").forEach(b => b.disabled = true);
+  input.classList.add(ok ? "right" : "wrong");
+  results.push({ q, ok, given: input.value.trim(), solution: q.answers[0] });
+  showFeedback(ok, ok
+    ? (accentNote ? `Fast perfekt! Achte auf den Akzent: <b>${q.answers[0]}</b>. ` : "") + q.ex
+    : `Richtig ist: <b>${q.answers[0]}</b>. ${q.ex}`);
+}
+
+function checkMc(q, i){
+  const ok = i === q.shownCorrect;
+  stage.querySelectorAll(".opt").forEach((b, j) => {
+    b.disabled = true;
+    if (j === q.shownCorrect) b.classList.add("right");
+    else if (j === i) b.classList.add("wrong");
+  });
+  results.push({ q, ok, given: q.shown[i], solution: q.shown[q.shownCorrect] });
+  showFeedback(ok, (ok ? "" : `Richtig ist: <b>${esc(q.shown[q.shownCorrect])}</b>. `) + q.ex);
+}
+
+function showFeedback(ok, html){
+  document.getElementById("fb").innerHTML = `<div class="feedback ${ok?"right":"wrong"}"><strong>${ok ? "¡Correcto!" : "Leider falsch"}</strong><p>${html}</p></div>`;
+  const n = document.getElementById("next");
+  n.hidden = false;
+  n.textContent = idx === order.length - 1 ? "Ergebnis anzeigen" : "Weiter";
+  n.focus({preventScroll:true});
+}
+
+function next(){ idx++; render(); }
+
+function renderResult(){
+  fillEl.style.width = "100%";
+  countEl.textContent = order.length + " / " + order.length;
+  const right = results.filter(r => r.ok).length, n = results.length;
+  const pct = Math.round(right / n * 100);
+  const msg = pct === 100 ? "¡Perfecto! Du beherrschst das Pluscuamperfecto."
+    : pct >= 80 ? "¡Muy bien! Nur noch ein paar Kleinigkeiten."
+    : pct >= 50 ? "¡Bien! Schau dir die Fehler unten noch einmal an."
+    : "Übung macht den Meister. Öffne den Spickzettel und versuch es nochmal.";
+  const wrong = results.filter(r => !r.ok);
+  stage.innerHTML = `
+    <span class="eyebrow">Ergebnis</span>
+    <div class="result-score">${right}<small> / ${n} · ${pct} %</small></div>
+    <p style="margin:0">${msg}</p>
+    ${wrong.length ? `<h2 style="font-size:1.2rem">Deine Fehler</h2>
+    <ul class="mistakes">${wrong.map(r => `<li>
+      <div>${r.q.type === "fill" ? `${esc(r.q.before)} ___ (${esc(r.q.verb)}) ${esc(r.q.after)}` : r.q.q}</div>
+      <div><span class="yours">${esc(r.given)}</span> → <span class="sol">${esc(r.solution)}</span></div>
+    </li>`).join("")}</ul>` : ""}
+    <div class="actions">
+      ${wrong.length ? `<button class="btn ghost" id="retryWrong">Nur Fehler üben</button>` : ""}
+      <button class="btn" id="again">Nochmal von vorn</button>
+    </div>`;
+  document.getElementById("again").addEventListener("click", () => start(QUESTIONS));
+  const rw = document.getElementById("retryWrong");
+  if (rw) rw.addEventListener("click", () => start(wrong.map(r => QUESTIONS.find(x => x === r.q || (x.q && x.q === r.q.q && x.s === r.q.s)) || r.q)));
+}
+
+start(QUESTIONS);
+</script>
+</body>
+</html>
