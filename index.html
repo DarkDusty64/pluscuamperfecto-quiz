@@ -145,6 +145,17 @@ select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1.5px sol
 .list-head h2 { font-size: 1.35rem; }
 .switch { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: .92rem; cursor: pointer; }
 .switch input { width: 18px; height: 18px; accent-color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 10px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; }
+.stat .num { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .lbl { color: var(--muted); font-size: .82rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; gap: 8px; align-items: center; padding: 6px 11px; border-radius: 99px; border: 1.5px solid var(--line); background: var(--surface); font-size: .92rem; }
+.chip .dots { font-size: .62rem; letter-spacing: 1px; color: var(--muted); }
+.chip.lv1, .chip.lv2 { background: var(--mark-soft); border-color: var(--mark); }
+.chip.lv3, .chip.lv4 { background: var(--good-soft); }
+.chip.lv5 { background: var(--good-soft); border-color: var(--good); }
+.btn.small { padding: 7px 12px; font-size: .9rem; }
 @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
 </style>
 </head>
@@ -179,25 +190,28 @@ select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1.5px sol
   </div>
 
   <section class="view" id="view-lernen" hidden>
+    <div class="stats" id="stats"></div>
     <div class="card" aria-live="polite">
       <div class="drill-top">
-        <span class="eyebrow">Karteikarten</span>
-        <label for="famSel">Gruppe
-          <select id="famSel"></select>
-        </label>
+        <span class="eyebrow">Smart Learning</span>
+        <span class="eyebrow" id="dLevel"></span>
       </div>
       <div class="bar">
         <div class="track"><div class="fill" id="dFill"></div></div>
-        <span id="dCount">0 / 0 gelernt</span>
+        <span id="dCount"></span>
       </div>
       <div id="drill"></div>
     </div>
 
     <div class="list-head">
-      <h2>Alle Partizipien nach Familien</h2>
-      <label class="switch" for="hideP"><input type="checkbox" id="hideP"> Partizipien verdecken</label>
+      <h2>Dein Stand</h2>
+      <div id="resetBox" class="actions"><button class="btn ghost small" id="reset">Fortschritt löschen</button></div>
     </div>
-    <div class="fam-grid" id="famGrid"></div>
+    <div class="chips" id="chips"></div>
+    <details class="cheat">
+      <summary>Merkhilfe nach Familien</summary>
+      <div class="fam-grid" id="famGrid" style="margin-top:14px"></div>
+    </details>
   </section>
 
   <section class="view" id="view-quiz">
@@ -318,12 +332,12 @@ function render(){
   progress();
   if (idx >= order.length) return renderResult();
   const q = order[idx];
-  const meta = `<div class="q-meta"><span class="eyebrow">${SECTIONS[q.s]}</span><span class="eyebrow">Frage ${idx+1}</span></div>`;
+  const meta = `<div class="q-meta"><span class="eyebrow">${SECTIONS[q.s]}</span><span class="eyebrow">${q.retry ? "Wiederholung" : "Frage " + (idx+1)}</span></div>`;
   if (q.type === "fill") {
     stage.innerHTML = meta + `
       <p class="q-text">${esc(q.before)} <span class="blank">&nbsp;</span> <span class="verb">(${esc(q.verb)})</span> ${esc(q.after)}</p>
       <div class="fillrow">
-        <input id="ans" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="z. B. había hablado" aria-label="Deine Antwort">
+        <input id="ans" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Deine Antwort" aria-label="Deine Antwort">
         <button class="btn" id="check">Prüfen</button>
       </div>
       <div class="accents" aria-label="Sonderzeichen einfügen">${["á","é","í","ó","ú","ñ"].map(c=>`<button class="acc" data-c="${c}" type="button">${c}</button>`).join("")}</div>
@@ -353,15 +367,21 @@ function checkFill(q, input){
   const val = norm(input.value);
   if (!val) { input.focus(); return; }
   const answers = q.answers.map(norm);
-  let ok = answers.includes(val), accentNote = false;
-  if (!ok && answers.map(noAcc).includes(noAcc(val))) { ok = true; accentNote = true; }
+  const ok = answers.includes(val);
+  const accentNote = !ok && answers.map(noAcc).includes(noAcc(val));
   input.disabled = true; document.getElementById("check").disabled = true;
   stage.querySelectorAll(".acc").forEach(b => b.disabled = true);
   input.classList.add(ok ? "right" : "wrong");
-  results.push({ q, ok, given: input.value.trim(), solution: q.answers[0] });
-  showFeedback(ok, ok
-    ? (accentNote ? `Fast perfekt! Achte auf den Akzent: <b>${q.answers[0]}</b>. ` : "") + q.ex
-    : `Richtig ist: <b>${q.answers[0]}</b>. ${q.ex}`);
+  record(q, ok, input.value.trim(), q.answers[0]);
+  showFeedback(ok, ok ? q.ex
+    : accentNote ? `Fast! Nur der Akzent fehlt: <b>${q.answers[0]}</b>. Die Frage kommt am Ende nochmal.`
+    : `Richtig ist: <b>${q.answers[0]}</b>. ${q.ex} Die Frage kommt am Ende nochmal.`);
+}
+
+// Falsche Fragen kommen am Ende der Runde wieder, bis sie sitzen. Gewertet wird nur der erste Versuch.
+function record(q, ok, given, solution){
+  if (!q.retry) results.push({ q, ok, given, solution });
+  if (!ok) order.push(q.type === "mc" ? prepMc({ ...q, retry: true }) : { ...q, retry: true });
 }
 
 function checkMc(q, i){
@@ -371,8 +391,8 @@ function checkMc(q, i){
     if (j === q.shownCorrect) b.classList.add("right");
     else if (j === i) b.classList.add("wrong");
   });
-  results.push({ q, ok, given: q.shown[i], solution: q.shown[q.shownCorrect] });
-  showFeedback(ok, (ok ? "" : `Richtig ist: <b>${esc(q.shown[q.shownCorrect])}</b>. `) + q.ex);
+  record(q, ok, q.shown[i], q.shown[q.shownCorrect]);
+  showFeedback(ok, (ok ? "" : `Richtig ist: <b>${esc(q.shown[q.shownCorrect])}</b>. `) + q.ex + (ok ? "" : " Die Frage kommt am Ende nochmal."));
 }
 
 function showFeedback(ok, html){
@@ -454,51 +474,113 @@ const FAMILIES = [
 ];
 const ALL_WORDS = FAMILIES.flatMap(f => f.words.map(w => ({ ...w, fam: f.title })));
 
-const famSel = document.getElementById("famSel");
+/* Spaced Repetition (Leitner): Level 0 = neu … 5 = gemeistert. Fortschritt bleibt im Browser gespeichert. */
+const SRS_KEY = "plusq-srs-v1";
+const MIN = 6e4, DAY = 864e5;
+const INTERVALS = [0, 10*MIN, DAY, 3*DAY, 7*DAY, 21*DAY];
+const MAX_LV = 5, SESSION_SIZE = 12, NEW_PER_SESSION = 5;
+const PERSON = { "había":"yo / él / ella", "habías":"tú", "habíamos":"nosotros", "habíais":"vosotros", "habían":"ellos / ellas" };
+const LV_GROUP = ["neu","lernen","lernen","sicher","sicher","gemeistert"];
+
+let srs = {};
+try { srs = JSON.parse(localStorage.getItem(SRS_KEY)) || {}; } catch (e) { srs = {}; }
+function saveSrs(){ try { localStorage.setItem(SRS_KEY, JSON.stringify(srs)); } catch (e) {} }
+function st(w){ return srs[w.inf] || { lv:0, due:0, wrong:0 }; }
+
+function splitEx(w){
+  const m = w.ex.match(/^(.*)<b>(.*)<\/b>(.*)$/);
+  const parts = m[2].split(" ");
+  return { pre:m[1], aux:parts.slice(0,-1).join(" "), part:parts[parts.length-1], full:m[2], post:m[3] };
+}
+function fmtWait(ms){
+  if (ms <= MIN) return "gleich";
+  if (ms < 60*MIN) return "in " + Math.round(ms/MIN) + " Min.";
+  if (ms < DAY) return "in " + Math.round(ms/(60*MIN)) + " Std.";
+  const d = Math.round(ms/DAY); return d === 1 ? "morgen" : "in " + d + " Tagen";
+}
+
 const drillEl = document.getElementById("drill");
 const dFill = document.getElementById("dFill");
 const dCount = document.getElementById("dCount");
-famSel.innerHTML = `<option value="all">Alle (${ALL_WORDS.length})</option>` +
-  FAMILIES.map(f => `<option value="${f.id}">${esc(f.title)} (${f.words.length})</option>`).join("");
+const dLevel = document.getElementById("dLevel");
+const statsEl = document.getElementById("stats");
+const chipsEl = document.getElementById("chips");
 
-let pile = [], total = 0, learned = 0, current = null, firstTry = true;
+let queue = [], sessionTotal = 0, done = 0, firstOk = 0, missed = new Set(), current = null;
 
-function startDrill(){
-  const words = famSel.value === "all" ? ALL_WORDS : FAMILIES.find(f => f.id === famSel.value).words.map(w => ({ ...w, fam: FAMILIES.find(f => f.id === famSel.value).title }));
-  pile = shuffle(words); total = words.length; learned = 0;
+function dueInfo(){
+  const now = Date.now();
+  const seen = ALL_WORDS.filter(w => srs[w.inf]);
+  const future = seen.map(w => st(w).due).filter(d => d > now);
+  return {
+    dueNow: seen.filter(w => st(w).due <= now).length,
+    newLeft: ALL_WORDS.length - seen.length,
+    nextDue: future.length ? Math.min(...future) : Infinity
+  };
+}
+function buildSession(force){
+  const now = Date.now();
+  const seen = ALL_WORDS.filter(w => srs[w.inf]);
+  const due = seen.filter(w => st(w).due <= now).sort((a,b) => st(a).lv - st(b).lv || st(a).due - st(b).due);
+  const fresh = shuffle(ALL_WORDS.filter(w => !srs[w.inf]));
+  let list = due.slice(0, SESSION_SIZE);
+  list = list.concat(fresh.slice(0, Math.max(0, Math.min(NEW_PER_SESSION, SESSION_SIZE - list.length))));
+  if (force && !list.length) list = seen.slice().sort((a,b) => st(a).lv - st(b).lv || st(b).wrong - st(a).wrong).slice(0, 8);
+  return shuffle(list);
+}
+function startSession(force){
+  queue = buildSession(force).map(w => ({ w }));
+  sessionTotal = queue.length; done = 0; firstOk = 0; missed = new Set();
+  if (!queue.length) return renderIdle();
   nextCard();
 }
-function drillProgress(){
-  dFill.style.width = (total ? learned / total * 100 : 0) + "%";
-  dCount.textContent = `${learned} / ${total} gelernt`;
+// Je höher das Level, desto schwerer die Karte
+function cardType(lv){
+  if (lv <= 1) return "inf";
+  if (lv === 2) return "sent";
+  if (lv === 3) return Math.random() < .5 ? "rev" : "sent";
+  return "full";
 }
+
 function nextCard(){
-  drillProgress();
-  if (!pile.length) {
-    drillEl.innerHTML = `<div class="flash"><div class="inf">¡Todo aprendido!</div><p class="de">Du hast alle ${total} Partizipien dieser Gruppe gewusst.</p></div>
-      <div class="actions"><button class="btn" id="dAgain">Nochmal üben</button></div>`;
-    document.getElementById("dAgain").addEventListener("click", startDrill);
-    return;
+  renderStats();
+  dFill.style.width = (sessionTotal ? done / sessionTotal * 100 : 0) + "%";
+  dCount.textContent = `${done} / ${sessionTotal}`;
+  if (!queue.length) return renderSessionEnd();
+  current = queue.shift();
+  const w = current.w, s = st(w), type = cardType(s.lv), ex = splitEx(w);
+  dLevel.textContent = s.lv === 0 ? "Neues Wort" : "Level " + s.lv;
+  let prompt;
+  if (type === "inf") {
+    prompt = `<div class="flash"><div class="inf">${esc(w.inf)}</div>${s.lv === 0 ? `<div class="de">${esc(w.de)}</div>` : ""}<p class="de">Partizip?</p></div>`;
+    current.answer = w.p;
+  } else if (type === "rev") {
+    prompt = `<div class="flash"><div class="inf">${esc(w.p)}</div><p class="de">Infinitiv?</p></div>`;
+    current.answer = w.inf;
+  } else if (type === "sent") {
+    prompt = `<p class="q-text">${ex.pre}${ex.aux} <span class="blank">&nbsp;</span> <span class="verb">(${esc(w.inf)})</span>${ex.post}</p>`;
+    current.answer = ex.part;
+  } else {
+    prompt = `<p class="q-text">${ex.pre}<span class="blank">&nbsp;</span> <span class="verb">(${PERSON[ex.aux.toLowerCase()] || ""} · ${esc(w.inf)})</span>${ex.post}</p>`;
+    current.answer = ex.full.toLowerCase();
   }
-  current = pile.shift(); firstTry = true;
-  drillEl.innerHTML = `
-    <div class="flash"><span class="fam">${esc(current.fam)}</span><div class="inf">${esc(current.inf)}</div><div class="de">${esc(current.de)}</div></div>
+  drillEl.innerHTML = prompt + `
     <div class="fillrow">
-      <input id="dAns" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Partizip, z. B. hecho" aria-label="Partizip eingeben">
+      <input id="dAns" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Deine Antwort" aria-label="Antwort eingeben">
       <button class="btn" id="dCheck">Prüfen</button>
     </div>
     <div class="accents">${["á","é","í","ó","ú","ñ"].map(c=>`<button class="acc" data-c="${c}" type="button">${c}</button>`).join("")}</div>
     <div id="dFb"></div>
-    <div class="actions"><button class="btn ghost" id="dShow">Weiß ich nicht</button><button class="btn" id="dNext" hidden>Weiter</button></div>`;
+    <div class="actions"><button class="btn ghost" id="dShow">Keine Ahnung</button><button class="btn" id="dNext" hidden>Weiter</button></div>`;
   const input = document.getElementById("dAns");
   input.focus({preventScroll:true});
   drillEl.querySelectorAll(".acc").forEach(b => b.addEventListener("click", () => {
-    const s = input.selectionStart ?? input.value.length, e = input.selectionEnd ?? input.value.length;
-    input.value = input.value.slice(0,s) + b.dataset.c + input.value.slice(e);
-    input.focus(); input.setSelectionRange(s+1, s+1);
+    const a = input.selectionStart ?? input.value.length, e = input.selectionEnd ?? input.value.length;
+    input.value = input.value.slice(0,a) + b.dataset.c + input.value.slice(e);
+    input.focus(); input.setSelectionRange(a+1, a+1);
   }));
   document.getElementById("dCheck").addEventListener("click", () => checkCard(input));
-  document.getElementById("dShow").addEventListener("click", () => revealCard(input));
+  document.getElementById("dShow").addEventListener("click", () => resolveCard(input, "wrong"));
   document.getElementById("dNext").addEventListener("click", nextCard);
   input.addEventListener("keydown", e => {
     if (e.key !== "Enter") return;
@@ -506,46 +588,106 @@ function nextCard(){
     if (input.disabled) nextCard(); else checkCard(input);
   });
 }
-function finishCard(input, ok, html){
-  input.disabled = true;
-  input.classList.add(ok ? "right" : "wrong");
-  drillEl.querySelectorAll(".acc").forEach(b => b.disabled = true);
-  document.getElementById("dCheck").disabled = true;
-  document.getElementById("dShow").hidden = true;
-  document.getElementById("dFb").innerHTML = `<div class="feedback ${ok?"right":"wrong"}"><strong>${ok ? "¡Correcto!" : "Nochmal üben"}</strong><p>${html}</p></div>`;
-  const n = document.getElementById("dNext"); n.hidden = false; n.focus({preventScroll:true});
-  if (ok) learned++;
-  else pile.splice(Math.min(3, pile.length), 0, current); // kommt bald wieder
-  drillProgress();
-}
 function checkCard(input){
   const val = norm(input.value);
   if (!val) { input.focus(); return; }
-  const sol = current.p;
-  const line = `<b>${esc(current.inf)} → ${esc(sol)}</b><br><span class="ex">${current.ex}</span>`;
-  if (val === sol) return finishCard(input, true, line);
-  if (noAcc(val) === noAcc(sol)) return finishCard(input, true, `Akzent nicht vergessen! ${line}`);
-  finishCard(input, false, `Du hast <i>${esc(input.value.trim())}</i> geschrieben. Richtig: ${line}<br>Die Karte kommt gleich nochmal.`);
+  const sol = norm(current.answer);
+  if (val === sol) return resolveCard(input, "ok");
+  if (noAcc(val) === noAcc(sol)) return resolveCard(input, "accent");
+  resolveCard(input, "wrong");
 }
-function revealCard(input){
-  finishCard(input, false, `<b>${esc(current.inf)} → ${esc(current.p)}</b><br><span class="ex">${current.ex}</span><br>Die Karte kommt gleich nochmal.`);
+function resolveCard(input, res){
+  const w = current.w, s = { ...st(w) }, now = Date.now(), first = !missed.has(w.inf);
+  let title, msg;
+  if (res === "ok") {
+    done++;
+    if (first) {
+      firstOk++;
+      const old = s.lv;
+      s.lv = Math.min(MAX_LV, s.lv + 1);
+      s.due = now + INTERVALS[s.lv];
+      msg = `Level ${old} → ${s.lv}. ${s.lv === MAX_LV ? "Gemeistert! " : ""}Kommt ${fmtWait(INTERVALS[s.lv])} wieder.`;
+    } else {
+      s.lv = Math.max(1, s.lv);
+      s.due = now + INTERVALS[1];
+      msg = `Diesmal gewusst. Kommt ${fmtWait(INTERVALS[1])} wieder.`;
+    }
+    title = "¡Correcto!";
+  } else {
+    missed.add(w.inf);
+    if (res === "wrong") { s.wrong = (s.wrong || 0) + 1; s.lv = 1; }
+    s.due = now;
+    queue.splice(Math.min(2 + Math.floor(Math.random() * 2), queue.length), 0, { w });
+    title = res === "accent" ? "Fast" : "Falsch";
+    msg = `${res === "accent" ? "Nur der Akzent fehlt. " : ""}Richtig: <b>${esc(current.answer)}</b><br><span class="ex">${w.ex}</span><br>Kommt gleich nochmal.`;
+  }
+  srs[w.inf] = s; saveSrs();
+  input.disabled = true;
+  input.classList.add(res === "ok" ? "right" : "wrong");
+  drillEl.querySelectorAll(".acc").forEach(b => b.disabled = true);
+  document.getElementById("dCheck").disabled = true;
+  document.getElementById("dShow").hidden = true;
+  document.getElementById("dFb").innerHTML = `<div class="feedback ${res === "ok" ? "right" : "wrong"}"><strong>${title}</strong><p>${msg}</p></div>`;
+  const n = document.getElementById("dNext"); n.hidden = false; n.focus({preventScroll:true});
+  dFill.style.width = (sessionTotal ? done / sessionTotal * 100 : 0) + "%";
+  dCount.textContent = `${done} / ${sessionTotal}`;
+  renderStats();
 }
-famSel.addEventListener("change", startDrill);
+function renderSessionEnd(){
+  dLevel.textContent = "";
+  const { dueNow, newLeft, nextDue } = dueInfo();
+  const when = dueNow ? `${dueNow} Wörter sind jetzt fällig.` : isFinite(nextDue) ? `Nächste Wiederholung ${fmtWait(nextDue - Date.now())}.` : "";
+  const more = dueNow || newLeft;
+  drillEl.innerHTML = `<div class="flash"><div class="inf">Runde geschafft</div>
+    <p class="de">${firstOk} von ${sessionTotal} beim ersten Versuch richtig.</p>
+    <p class="de">${when}${newLeft ? ` ${newLeft} neue Wörter warten noch.` : ""}</p></div>
+    <div class="actions"><button class="btn${more ? "" : " ghost"}" id="dRound">${more ? "Nächste Runde" : "Trotzdem üben"}</button></div>`;
+  document.getElementById("dRound").addEventListener("click", () => startSession(!more));
+}
+function renderIdle(){
+  dLevel.textContent = "";
+  dFill.style.width = "100%"; dCount.textContent = "";
+  const { nextDue } = dueInfo();
+  drillEl.innerHTML = `<div class="flash"><div class="inf">Alles erledigt</div>
+    <p class="de">Gerade ist nichts fällig.${isFinite(nextDue) ? ` Nächste Wiederholung ${fmtWait(nextDue - Date.now())}.` : ""}</p></div>
+    <div class="actions"><button class="btn ghost" id="dForce">Trotzdem üben</button></div>`;
+  document.getElementById("dForce").addEventListener("click", () => startSession(true));
+}
+function renderStats(){
+  const now = Date.now();
+  const c = { neu:0, lernen:0, sicher:0, gemeistert:0 }; let due = 0;
+  ALL_WORDS.forEach(w => { const s = st(w); c[LV_GROUP[s.lv]]++; if (srs[w.inf] && s.due <= now) due++; });
+  statsEl.innerHTML = [["Neu", c.neu], ["Am Lernen", c.lernen], ["Sicher", c.sicher], ["Gemeistert", c.gemeistert], ["Jetzt fällig", due]]
+    .map(([l, v]) => `<div class="stat"><span class="num">${v}</span><span class="lbl">${l}</span></div>`).join("");
+  chipsEl.innerHTML = ALL_WORDS.map(w => {
+    const s = st(w);
+    return `<span class="chip lv${s.lv}" title="Level ${s.lv} von ${MAX_LV}">${esc(w.inf)}${s.lv === MAX_LV ? ` · <b>${esc(w.p)}</b>` : ""}<span class="dots" aria-hidden="true">${"●".repeat(s.lv)}${"○".repeat(MAX_LV - s.lv)}</span></span>`;
+  }).join("");
+}
 
-// Übersicht nach Familien
-const famGrid = document.getElementById("famGrid");
-famGrid.innerHTML = FAMILIES.map(f => `
+// Fortschritt löschen (mit Bestätigung auf der Seite)
+const resetBox = document.getElementById("resetBox");
+function renderReset(confirming){
+  resetBox.innerHTML = confirming
+    ? `<span style="color:var(--muted)">Wirklich alles löschen?</span><button class="btn small" id="resetYes">Ja, löschen</button><button class="btn ghost small" id="resetNo">Abbrechen</button>`
+    : `<button class="btn ghost small" id="reset">Fortschritt löschen</button>`;
+  if (confirming) {
+    document.getElementById("resetYes").addEventListener("click", () => { srs = {}; saveSrs(); renderReset(false); renderStats(); startSession(false); });
+    document.getElementById("resetNo").addEventListener("click", () => renderReset(false));
+  } else {
+    document.getElementById("reset").addEventListener("click", () => renderReset(true));
+  }
+}
+
+// Merkhilfe (eingeklappt)
+document.getElementById("famGrid").innerHTML = FAMILIES.map(f => `
   <div class="fam-card">
     <h3>${esc(f.title)}</h3>
     <p class="hint">${esc(f.hint)}</p>
     <table>${f.words.map(w => `<tr><td>${esc(w.inf)}<small>${esc(w.de)}</small></td><td class="p"><span>${esc(w.p)}</span></td></tr>`).join("")}</table>
   </div>`).join("");
-const hideP = document.getElementById("hideP");
-hideP.addEventListener("change", () => famGrid.classList.toggle("hide-p", hideP.checked));
-famGrid.addEventListener("click", e => {
-  const s = e.target.closest("td.p span");
-  if (s && famGrid.classList.contains("hide-p")) s.classList.toggle("peek");
-});
+
+function initLearn(){ renderReset(false); renderStats(); startSession(false); }
 
 // Tabs (#quiz / #lernen)
 function showView(name){
@@ -559,7 +701,7 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
 }));
 window.addEventListener("hashchange", () => showView(location.hash.slice(1)));
 showView(location.hash.slice(1));
-startDrill();
+initLearn();
 </script>
 </body>
 </html>
